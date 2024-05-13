@@ -559,7 +559,7 @@ try:
     while True:
         now = datetime.now()
 
-        if start_time == None and now.hour == 15 and now.minute == 13: #edit time (now.hour == n), n = 3,6,9,12,15,18, 15 = 3 pm, 18 = 6 pm
+        if start_time == None and now.hour == 0 and now.minute == 0: #edit time (now.hour == n), n = 3,6,9,12,15,18, 15 = 3 pm, 18 = 6 pm
             start_time = now
             print("Starting collecting data at 12 AM...")
             #time.sleep(60)
