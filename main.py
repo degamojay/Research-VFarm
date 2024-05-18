@@ -5,7 +5,9 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLa
 from PyQt5.QtWidgets import QCalendarWidget, QHBoxLayout, QGroupBox, QPushButton, QSpacerItem, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5 import QtGui, QtCore
+import open3d as o3d
+import win32gui
 from application_logic import ApplicationLogic
 from sensorData import SensorDataThread
 from volumetricRepresentation import VolumetricRepresentation
@@ -31,10 +33,9 @@ class App(QMainWindow):
         main_layout.addWidget(header_label)
 
         self.content_layout = QHBoxLayout()
-        self.canvas_layout = QVBoxLayout()  # Layout for the image canvas
+        self.canvas_layout = QVBoxLayout()  # Layout for the 3D model viewer
         self.control_panel_layout = QVBoxLayout()  # Layout for control panel
 
-        self.canvas_layout.addWidget(QLabel("Image Canvas"))
         self.control_panel_layout = self.create_control_panel()
 
         self.content_layout.addLayout(self.canvas_layout, 2)  # Set canvas layout with larger stretch factor
@@ -75,11 +76,10 @@ class App(QMainWindow):
         else:
             self.control_panel_layout.setAlignment(Qt.AlignTop)
 
-
     def update_display_for_plant(self, plant):
         today_date = datetime.now().strftime("%Y-%m-%d")
-        image_dir = os.path.join(os.path.dirname(__file__), 'captured_images')
-        image_path = os.path.join(image_dir, f"{today_date}_left_{plant}.jpg")
+        pcd_path = "Flower.ply"
+        #pcd_path = os.path.join(os.path.dirname(__file__), 'captured_images', f"{today_date}_left_{plant}.ply")
 
         # Clear previous widgets in the canvas layout
         for i in reversed(range(self.canvas_layout.count())):
@@ -89,20 +89,31 @@ class App(QMainWindow):
                 widget_to_remove.setParent(None)
                 widget_to_remove.deleteLater()
 
-        if os.path.exists(image_path):
-            self.fig = VolumetricRepresentation(image_path=image_path).fig
-            if self.fig:
-                self.canvas = FigureCanvas(self.fig)
-                self.canvas_layout.addWidget(self.canvas)
-            else:
-                no_data_label = QLabel("No Data Yet")
-                no_data_label.setAlignment(Qt.AlignCenter)
-                self.canvas_layout.addWidget(no_data_label)
+        if os.path.exists(pcd_path):
+            self.create_3d_viewer(pcd_path)
         else:
-            no_data_label = QLabel(f"No image found for Plant {plant} today")
+            no_data_label = QLabel(f"No 3D model found for Plant {plant} today")
             no_data_label.setAlignment(Qt.AlignCenter)
             self.canvas_layout.addWidget(no_data_label)
 
+    def create_3d_viewer(self, pcd_path):
+        pcd = o3d.io.read_point_cloud(pcd_path)
+        self.vis = o3d.visualization.Visualizer()
+        self.vis.create_window()
+        self.vis.add_geometry(pcd)
+
+        hwnd = win32gui.FindWindowEx(0, 0, None, "Open3D")
+        self.window = QtGui.QWindow.fromWinId(hwnd)
+        self.windowcontainer = self.createWindowContainer(self.window, self)
+        self.canvas_layout.addWidget(self.windowcontainer)
+
+        timer = QtCore.QTimer(self)
+        timer.timeout.connect(self.update_vis)
+        timer.start(1)
+
+    def update_vis(self):
+        self.vis.poll_events()
+        self.vis.update_renderer()
 
     def get_plant_label_text(self):
         return f"Plant {self.application_logic.get_selected_plant()}"
@@ -127,7 +138,6 @@ class App(QMainWindow):
         self.application_logic.set_selected_plant(plant)
         self.plant_label.setText(self.get_plant_label_text())
         self.update_display_for_plant(plant)  # Update the display for the selected plant
-
 
     def create_control_panel(self):
         control_panel_layout = QVBoxLayout()
@@ -179,9 +189,10 @@ class App(QMainWindow):
         for sensor, data in sensor_data.items():
             self.sensor_data_labels[sensor].setText(f"{sensor}: {data}")
 
-        # Update the image display
+        # Update the 3D model display
         plant = self.application_logic.get_selected_plant()
-        image_path = os.path.join(os.path.dirname(__file__), 'captured_images', f"{selected_date}_left_{plant}.jpg")
+        pcd_path = "Flower.ply"
+        #pcd_path = os.path.join(os.path.dirname(__file__), 'captured_images', f"{selected_date}_left_{plant}.ply")
 
         # Clear previous widgets in the canvas layout
         for i in reversed(range(self.canvas_layout.count())):
@@ -191,22 +202,12 @@ class App(QMainWindow):
                 widget_to_remove.setParent(None)
                 widget_to_remove.deleteLater()
 
-        if os.path.exists(image_path):
-            self.fig = VolumetricRepresentation(image_path=image_path).fig
-            if self.fig:
-                self.canvas = FigureCanvas(self.fig)
-                self.canvas_layout.addWidget(self.canvas)
-            else:
-                no_data_label = QLabel("No Data Yet")
-                no_data_label.setAlignment(Qt.AlignCenter)
-                self.canvas_layout.addWidget(no_data_label)
+        if os.path.exists(pcd_path):
+            self.create_3d_viewer(pcd_path)
         else:
-            no_data_label = QLabel(f"No image found for Plant {plant} on {selected_date}")
+            no_data_label = QLabel(f"No 3D model found for Plant {plant} on {selected_date}")
             no_data_label.setAlignment(Qt.AlignCenter)
             self.canvas_layout.addWidget(no_data_label)
-
-
-
 
 
 if __name__ == "__main__":

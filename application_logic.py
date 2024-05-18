@@ -55,19 +55,19 @@ class ApplicationLogic(QObject):
             mydb = mysql.connector.connect(
                 host="localhost",
                 user="root",
-                password="Thnksfrthmmrs1234!#",
-                database="data_collection"
+                password="12345",
+                database="tester"
             )
             mycursor = mydb.cursor()
 
             # Fetch the latest sensor data from the database for the selected date or today's date if not provided
             if selected_date:
                 # Fetch data for the selected date
-                query = "SELECT amb_temp, water_temp, ph_value, ec_value, lux_top, lux_bot FROM data_collection.sensor_data WHERE DATE(timestamp) = %s ORDER BY timestamp DESC LIMIT 1"
+                query = "SELECT amb_temp, water_temp, ph_value, ec_value, lux_top, lux_bot FROM tester.sensor_data WHERE DATE(timestamp) = %s ORDER BY timestamp DESC LIMIT 1"
                 mycursor.execute(query, (selected_date,))
             else:
                 # Fetch the latest sensor data regardless of the date
-                mycursor.execute("SELECT amb_temp, water_temp, ph_value, ec_value, lux_top, lux_bot FROM data_collection.sensor_data ORDER BY timestamp DESC LIMIT 1")
+                mycursor.execute("SELECT amb_temp, water_temp, ph_value, ec_value, lux_top, lux_bot FROM tester.sensor_data ORDER BY timestamp DESC LIMIT 1")
             
             data = mycursor.fetchone()
 

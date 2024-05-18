@@ -242,8 +242,8 @@ class Access_cam:
         self.mydb = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="Thnksfrthmmrs1234!#",
-            database="data_collection"
+            password="12345",
+            database="tester"
         )
         self.mycursor = self.mydb.cursor()
 
@@ -547,8 +547,8 @@ try:
     mydb = mysql.connector.connect(
         host="localhost",
         user="root",
-        password="Thnksfrthmmrs1234!#",
-        database="data_collection"
+        password="12345",
+        database="tester"
     )
     mycursor = mydb.cursor()
 
