@@ -13,7 +13,45 @@ from sensorData import SensorDataThread
 from volumetricRepresentation import VolumetricRepresentation
 from PyQt5.QtCore import pyqtSlot
 import mysql.connector
-from PyQt5.QtCore import QDate
+from PyQt5.QtGui import QTextCharFormat, QColor
+from PyQt5.QtCore import QDate, QEvent
+
+
+class CustomCalendarWidget(QCalendarWidget):
+    def __init__(self, dates_with_data, parent=None):
+        super().__init__(parent)
+        self.dates_with_data = set(dates_with_data)
+        self.update_calendar()
+
+    def update_calendar(self):
+        for i in range(1, 32):
+            for j in range(1, 13):
+                date = QDate(self.yearShown(), j, i)
+                if date.isValid() and date <= QDate.currentDate():
+                    if date.toString("yyyy-MM-dd") not in self.dates_with_data:
+                        self.setDateTextFormat(date, self.disabled_format())
+
+    def disabled_format(self):
+        disabled_format = QTextCharFormat()
+        disabled_format.setForeground(QColor("gray"))
+        disabled_format.setBackground(QColor(240, 240, 240))
+        return disabled_format
+
+    def paintCell(self, painter, rect, date):
+        super().paintCell(painter, rect, date)
+        if date.toString("yyyy-MM-dd") not in self.dates_with_data:
+            painter.fillRect(rect, QColor(240, 240, 240))
+            text_format = QTextCharFormat()
+            text_format.setForeground(QColor("gray"))
+            painter.drawText(rect, Qt.AlignCenter, str(date.day()))
+
+    def mousePressEvent(self, event):
+        date = self.dateAt(event.pos())
+        if date.isValid() and date.toString("yyyy-MM-dd") not in self.dates_with_data:
+            event.ignore()
+        else:
+            super().mousePressEvent(event)
+
 
 class App(QMainWindow):
     def __init__(self, application_logic):
@@ -33,15 +71,15 @@ class App(QMainWindow):
         main_layout.addWidget(header_label)
 
         self.content_layout = QHBoxLayout()
-        self.canvas_layout = QVBoxLayout()  # Layout for the 3D model viewer
-        self.control_panel_layout = QVBoxLayout()  # Layout for control panel
+        self.canvas_layout = QVBoxLayout()
+        self.control_panel_layout = QVBoxLayout()
 
         self.control_panel_layout = self.create_control_panel()
 
-        self.content_layout.addLayout(self.canvas_layout, 2)  # Set canvas layout with larger stretch factor
-        self.content_layout.addLayout(self.control_panel_layout, 1)  # Set control panel layout with smaller stretch factor
+        self.content_layout.addLayout(self.canvas_layout, 2)
+        self.content_layout.addLayout(self.control_panel_layout, 1)
 
-        self.update_display_for_plant(1)  # Initialize with plant 1
+        self.update_display_for_plant(1)
 
         self.plant_label = QLabel(self.get_plant_label_text())
         self.plant_label.setAlignment(Qt.AlignCenter)
@@ -50,27 +88,21 @@ class App(QMainWindow):
 
         main_layout.addLayout(self.content_layout)
 
-        self.plant_buttons_layout = self.create_plant_buttons()  # Assign layout to class attribute
+        self.plant_buttons_layout = self.create_plant_buttons()
         main_layout.addLayout(self.plant_buttons_layout)
 
-        self.setMinimumSize(800, 600)  # Set minimum size to maintain responsiveness
+        self.setMinimumSize(800, 600)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.adjust_layouts()
 
     def adjust_layouts(self):
-        # Adjust layout sizes and alignments based on window size
         window_width = self.width()
-
         if window_width < 800:
-            # Adjust plant buttons layout for smaller window width
             self.plant_buttons_layout.setSpacing(10)
         else:
-            # Adjust plant buttons layout for larger window width
             self.plant_buttons_layout.setSpacing(20)
-
-        # Adjust control panel layout alignment based on window width
         if window_width < 1000:
             self.control_panel_layout.setAlignment(Qt.AlignLeft)
         else:
@@ -79,9 +111,7 @@ class App(QMainWindow):
     def update_display_for_plant(self, plant):
         today_date = datetime.now().strftime("%Y-%m-%d")
         pcd_path = "Flower.ply"
-        #pcd_path = os.path.join(os.path.dirname(__file__), 'captured_images', f"{today_date}_left_{plant}.ply")
 
-        # Clear previous widgets in the canvas layout
         for i in reversed(range(self.canvas_layout.count())):
             widget_to_remove = self.canvas_layout.itemAt(i).widget()
             if widget_to_remove:
@@ -137,7 +167,7 @@ class App(QMainWindow):
     def on_plant_button_clicked(self, plant):
         self.application_logic.set_selected_plant(plant)
         self.plant_label.setText(self.get_plant_label_text())
-        self.update_display_for_plant(plant)  # Update the display for the selected plant
+        self.update_display_for_plant(plant)
 
     def create_control_panel(self):
         control_panel_layout = QVBoxLayout()
@@ -154,8 +184,9 @@ class App(QMainWindow):
         status_layout.addWidget(self.status_label)
         control_panel_layout.addWidget(status_group)
 
-        self.calendar = QCalendarWidget()
-        self.calendar.clicked.connect(self.update_display_for_selected_date)  # Connect clicked signal
+        # Create the calendar widget and add it to the layout
+        self.calendar = CustomCalendarWidget(self.application_logic.get_dates_with_data())
+        self.calendar.clicked.connect(self.update_display_for_selected_date)
         control_panel_layout.addWidget(self.calendar)
 
         sensor_data_group = QGroupBox("Sensor Data")
@@ -178,23 +209,43 @@ class App(QMainWindow):
 
         return control_panel_layout
 
+
+    def update_calendar(self):
+        dates_with_data = self.application_logic.get_dates_with_data()
+        dates_with_data = set(dates_with_data)
+        today = QDate.currentDate()
+
+        # Format to indicate disabled dates
+        disabled_format = QTextCharFormat()
+        disabled_format.setForeground(QColor("gray"))
+        disabled_format.setBackground(QColor(240, 240, 240))
+
+        # Disable all dates initially
+        for i in range(1, 32):
+            for j in range(1, 13):
+                date = QDate(today.year(), j, i)
+                if date.isValid() and date <= today:
+                    self.calendar.setDateTextFormat(date, disabled_format)
+
+        # Enable dates that have data
+        for date_str in dates_with_data:
+            year, month, day = map(int, date_str.split('-'))
+            date = QDate(year, month, day)
+            if date.isValid():
+                self.calendar.setDateTextFormat(date, QTextCharFormat())
+
     def update_display_for_selected_date(self):
         selected_date = self.calendar.selectedDate().toString("yyyy-MM-dd")
         
-        # Fetch the last sensor data for the selected date from the database
         self.application_logic.update_sensor_data_from_db(selected_date)
 
-        # Update the sensor data labels in the GUI
         sensor_data = self.application_logic.get_sensor_data()
         for sensor, data in sensor_data.items():
             self.sensor_data_labels[sensor].setText(f"{sensor}: {data}")
 
-        # Update the 3D model display
         plant = self.application_logic.get_selected_plant()
         pcd_path = "Flower.ply"
-        #pcd_path = os.path.join(os.path.dirname(__file__), 'captured_images', f"{selected_date}_left_{plant}.ply")
 
-        # Clear previous widgets in the canvas layout
         for i in reversed(range(self.canvas_layout.count())):
             widget_to_remove = self.canvas_layout.itemAt(i).widget()
             if widget_to_remove:
@@ -216,9 +267,8 @@ if __name__ == "__main__":
     window = App(app_logic)
     window.show()
 
-    # Start the sensor data collection thread
     sensor_thread = SensorDataThread()
-    sensor_thread.data_updated.connect(app_logic.update_sensor_data_from_db)  # Corrected signal-slot connection
+    sensor_thread.data_updated.connect(app_logic.update_sensor_data_from_db)
     sensor_thread.start()
 
     sys.exit(app.exec_())
