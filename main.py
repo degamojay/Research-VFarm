@@ -15,6 +15,7 @@ from PyQt5.QtCore import pyqtSlot
 import mysql.connector
 from PyQt5.QtGui import QTextCharFormat, QColor
 from PyQt5.QtCore import QDate, QEvent
+import meshGeneration
 
 
 class CustomCalendarWidget(QCalendarWidget):
@@ -155,7 +156,7 @@ class App(QMainWindow):
 
         self.plant_buttons = []
 
-        for i in range(1, 7):
+        for i in range(1, 5):
             plant_button = QPushButton(f"Plant {i}")
             plant_button.setMinimumSize(125, 20)
             plant_button.clicked.connect(lambda checked, plant=i: self.on_plant_button_clicked(plant))
@@ -244,7 +245,13 @@ class App(QMainWindow):
             self.sensor_data_labels[sensor].setText(f"{sensor}: {data}")
 
         plant = self.application_logic.get_selected_plant()
-        pcd_path = "Flower.ply"
+
+        # Generate the 3D model using meshGeneration functions
+        pcd_path = f"{selected_date}_image2.ply"
+        stereo_images_dir_path = ".\sample_stereo_images"  # Update with your actual path
+
+        # Assuming you need to pass specific parameters to generate the PLY file
+        meshGeneration.generate_pcd(stereo_images_dir_path, pcd_path)
 
         for i in reversed(range(self.canvas_layout.count())):
             widget_to_remove = self.canvas_layout.itemAt(i).widget()
